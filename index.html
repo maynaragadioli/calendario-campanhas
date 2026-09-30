@@ -1135,7 +1135,108 @@ function saveCamp(){
   iC();saveAll();rebuildIndex();closeDrawer();render();
 }
 function openDel(){const c=CAMPS.find(x=>x.id===editId);if(!c)return;document.getElementById('cdnm').textContent='"'+escH(c.name)+'"';document.getElementById('ov-del').classList.add('open');}
-function execDel(){CAMPS=CAMPS.filter(c=>c.id!==editId);document.getElementById('ov-del').classList.remove('open');iC();saveAll();rebuildIndex();closeDrawer();render();toast('🗑️ Campanha excluída.','warn');}
+async function execDel() {
+  const idExcluir = Number(editId);
+
+  if (!idExcluir) {
+    toast('⚠ Não foi possível identificar a campanha.', 'warn');
+    return;
+  }
+
+  if (!window.supabaseClient) {
+    toast('❌ Supabase indisponível.', 'err');
+    return;
+  }
+
+  const botaoExcluir = document.querySelector(
+    '#ov-del .btn.bd'
+  );
+
+  const textoOriginal = botaoExcluir
+    ? botaoExcluir.innerHTML
+    : '';
+
+  if (botaoExcluir) {
+    botaoExcluir.disabled = true;
+    botaoExcluir.innerHTML =
+      '<span class="spin"></span> Excluindo...';
+  }
+
+  try {
+    console.log(
+      '[Campanhas] Excluindo ID:',
+      idExcluir
+    );
+
+    const { data, error } = await window.supabaseClient
+      .from('campanhas')
+      .delete()
+      .eq('id', idExcluir)
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(
+      '[Campanhas] Resultado do DELETE:',
+      data
+    );
+
+    if (!data || data.length === 0) {
+      throw new Error(
+        'O Supabase não confirmou a exclusão. Verifique a policy DELETE da tabela campanhas.'
+      );
+    }
+
+    /*
+      Atualização imediata da interface.
+      O Realtime também atualizará as outras janelas.
+    */
+    CAMPS = CAMPS.filter(
+      campanha =>
+        Number(campanha.id) !== idExcluir
+    );
+
+    editId = null;
+
+    document
+      .getElementById('ov-del')
+      .classList.remove('open');
+
+    iC();
+    saveAll();
+    rebuildIndex();
+    closeDrawer();
+    render();
+
+    toast(
+      '🗑️ Campanha excluída do Supabase.',
+      'warn'
+    );
+
+  } catch (error) {
+    console.error(
+      '[Campanhas] Erro ao excluir:',
+      error
+    );
+
+    toast(
+      '❌ Erro ao excluir: ' +
+      (
+        error?.message ||
+        'erro desconhecido'
+      ),
+      'err'
+    );
+
+  } finally {
+    if (botaoExcluir) {
+      botaoExcluir.disabled = false;
+      botaoExcluir.innerHTML = textoOriginal;
+    }
+  }
+}
 
 // PERMISSIONS
 function openPerm(){if(!canAdmin()){toast('🔒 Apenas Administradores.','warn');return;}renderPerm();document.getElementById('ov-perm').classList.add('open');}
