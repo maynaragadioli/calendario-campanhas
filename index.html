@@ -1296,25 +1296,24 @@ document.addEventListener('keydown',e=>{
 });
 
 
-// ══ PAINEL DE CONTEXTO MENSAL ══
+// ══ PAINEL DE CONTEXTO MENSAL - UI POR ID ══
 var CTX_DATA = [];
-var CTX_NID  = 1;
-var ctxProd  = null;
+var CTX_NID = 1;
+var ctxProd = null;
+var ctxEditingEntry = null;
 
 var CTX_PRODS = [
-  {key:'Pós-Graduação',       icon:'🎓', cls:'ctx-pos',  label:'Pós-Graduação'},
-  {key:'Profissionalizantes',  icon:'📚', cls:'ctx-prof', label:'Profissionalizantes'},
-  {key:'Mackenzie',            icon:'🏛️', cls:'ctx-mack', label:'Mackenzie'},
-  {key:'UTP',                  icon:'🎓', cls:'ctx-utp',  label:'UTP'},
-  {key:'UPF',                  icon:'🎓', cls:'ctx-upf',  label:'UPF'},
-  {key:'Singularidades',       icon:'✨', cls:'ctx-sing', label:'Singularidades'},
+  {key:'Pós-Graduação', icon:'🎓', cls:'ctx-pos', label:'Pós-Graduação'},
+  {key:'Profissionalizantes', icon:'📚', cls:'ctx-prof', label:'Profissionalizantes'},
+  {key:'Mackenzie', icon:'🏛️', cls:'ctx-mack', label:'Mackenzie'},
+  {key:'UTP', icon:'🎓', cls:'ctx-utp', label:'UTP'},
+  {key:'UPF', icon:'🎓', cls:'ctx-upf', label:'UPF'},
+  {key:'Singularidades', icon:'✨', cls:'ctx-sing', label:'Singularidades'}
 ];
 
-function loadCtx(){
-  var s=ld('cc-ctx');
-  if(s&&Array.isArray(s)){CTX_DATA=s;CTX_NID=Math.max.apply(null,s.map(function(e){return Number(e.id)||0;}).concat([0]))+1;}
-}
-function saveCtxData(){sv('cc-ctx',CTX_DATA);}
+// Mantidas apenas por compatibilidade. Supabase é a fonte oficial.
+function loadCtx(){ CTX_DATA=[]; CTX_NID=1; }
+function saveCtxData(){}
 
 function ctxInMonth(e,year,month){
   if(!e.startDate||!e.endDate)return false;
@@ -1325,61 +1324,56 @@ function ctxInMonth(e,year,month){
 
 function renderCtxPanel(){
   var panel=document.getElementById('ctx-panel');
-  var grid =document.getElementById('ctx-grid');
+  var grid=document.getElementById('ctx-grid');
   var label=document.getElementById('ctx-month-label');
   var editBtn=document.getElementById('ctx-edit-btn');
   var year=viewYear,month=viewMonth;
   var active=CTX_DATA.filter(function(e){return ctxInMonth(e,year,month);});
 
   editBtn.style.display=canAdmin()?'flex':'none';
+  editBtn.textContent='＋ Adicionar contexto';
+  editBtn.setAttribute('onclick','openCtxDrawer(null)');
   label.textContent=MESES[month]+' '+year;
 
   if(active.length===0){
     panel.style.display=canAdmin()?'':'none';
-    if(canAdmin()){
-      grid.innerHTML='<div class="ctx-empty">Nenhum contexto para '+MESES[month]+' '+year+'.<br><button class="ctx-add-btn" onclick="openCtxDrawer()" style="margin-top:10px">\uFF0B Adicionar contexto</button></div>';
-    } else {
-      grid.innerHTML='';
-    }
+    grid.innerHTML=canAdmin()
+      ? '<div class="ctx-empty">Nenhum contexto para '+MESES[month]+' '+year+'.<br><button class="ctx-add-btn" onclick="openCtxDrawer(null)" style="margin-top:10px">＋ Adicionar contexto</button></div>'
+      : '';
     return;
   }
 
   panel.style.display='';
   var html='';
   active.forEach(function(entry){
-    var meta=null;
-    for(var i=0;i<CTX_PRODS.length;i++){if(CTX_PRODS[i].key===entry.prod){meta=CTX_PRODS[i];break;}}
-    if(!meta)meta={icon:'📋',cls:'ctx-pos',label:entry.prod};
+    var meta=CTX_PRODS.find(function(p){return p.key===entry.prod;})||{icon:'📋',cls:'ctx-pos',label:entry.prod};
     var fD=function(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0];};
-    var period=fD(entry.startDate)+' \u2192 '+fD(entry.endDate);
+    var period=fD(entry.startDate)+' → '+fD(entry.endDate);
 
     var obsHtml='';
     if(entry.obs){
-      var mp={warn:'ctx-obs-warn \u26a0\ufe0f',info:'ctx-obs-info \u2139\ufe0f',ok:'ctx-obs-ok \u2705'};
-      var parts=(mp[entry.obsType||'info']||'ctx-obs-info \u2139\ufe0f').split(' ');
+      var mp={warn:['ctx-obs-warn','⚠️'],info:['ctx-obs-info','ℹ️'],ok:['ctx-obs-ok','✅']};
+      var parts=mp[entry.obsType||'info']||mp.info;
       obsHtml='<div class="ctx-obs '+parts[0]+'"><span>'+parts[1]+'</span><span>'+escH(entry.obs)+'</span></div>';
     }
 
     var discHtml='';
-    if(entry.items&&entry.items.length>0){
-      var rows='';
-      entry.items.forEach(function(it){
-        rows+='<div class="ctx-disc-item"><span class="ctx-disc-label">'+escH(it.label)+'</span>'
-          +'<span class="ctx-disc-pct">'+escH(it.pct)+'</span></div>';
-      });
-      var auto=entry.discAuto?'<div class="ctx-auto-badge">\uD83D\uDCCC Autom\u00e1tico via CPF</div>':'';
-      discHtml='<div class="ctx-disc-title">'+escH(entry.discTitle||'Descontos')+'</div>'
-        +'<div class="ctx-disc-list">'+rows+'</div>'+auto;
+    if(entry.items&&entry.items.length){
+      var rows=entry.items.map(function(it){
+        return '<div class="ctx-disc-item"><span class="ctx-disc-label">'+escH(it.label)+'</span><span class="ctx-disc-pct">'+escH(it.pct)+'</span></div>';
+      }).join('');
+      var auto=entry.discAuto?'<div class="ctx-auto-badge">📌 Automático via CPF</div>':'';
+      discHtml='<div class="ctx-disc-title">'+escH(entry.discTitle||'Descontos')+'</div><div class="ctx-disc-list">'+rows+'</div>'+auto;
     }
 
     var editCardBtn=canAdmin()
-      ?'<div style="text-align:right"><button class="ctx-edit-card-btn" onclick="openCtxDrawer(\''+entry.prod.replace(/'/g,"\\'")+'\')">\u270f\ufe0f Editar</button></div>'
-      :'';
+      ? '<div style="text-align:right"><button class="ctx-edit-card-btn" onclick="openCtxDrawer('+Number(entry.id)+')">✏️ Editar</button></div>'
+      : '';
 
-    html+='<div class="ctx-card '+meta.cls+'">'
+    html+='<div class="ctx-card '+meta.cls+'" data-contexto-id="'+Number(entry.id)+'">'
       +'<div class="ctx-card-hdr">'
-        +'<div class="ctx-card-title">'+meta.icon+' '+escH(meta.label)+'</div>'
-        +'<div class="ctx-card-period">'+period+'</div>'
+      +'<div class="ctx-card-title">'+meta.icon+' '+escH(meta.label)+'</div>'
+      +'<div class="ctx-card-period">'+period+'</div>'
       +'</div>'
       +'<div class="ctx-card-body">'+obsHtml+discHtml+editCardBtn+'</div>'
       +'</div>';
@@ -1387,157 +1381,110 @@ function renderCtxPanel(){
   grid.innerHTML=html;
 }
 
-function openCtxDrawer(prodKey){
-  if(!canAdmin()){toast('\uD83D\uDD12 Apenas Administradores.','warn');return;}
-  var year=viewYear,month=viewMonth;
-  document.getElementById('ctx-dr-label').textContent=MESES[month]+' '+year;
-  ctxProd=prodKey||CTX_PRODS[0].key;
+function openCtxDrawer(entryId){
+  if(!canAdmin()){toast('🔒 Apenas Administradores.','warn');return;}
+
+  ctxEditingEntry=null;
+  if(entryId!==null&&entryId!==undefined){
+    ctxEditingEntry=CTX_DATA.find(function(e){return Number(e.id)===Number(entryId);})||null;
+    if(!ctxEditingEntry){toast('⚠ Contexto não encontrado.','warn');return;}
+    ctxProd=ctxEditingEntry.prod;
+    if(typeof window.editarContextoSupabase==='function')window.editarContextoSupabase(Number(entryId));
+  }else{
+    ctxProd=CTX_PRODS[0].key;
+    if(typeof window.novoContextoSupabase==='function')window.novoContextoSupabase();
+  }
+
+  document.getElementById('ctx-dr-label').textContent=MESES[viewMonth]+' '+viewYear;
   renderCtxTabs();
   renderCtxForm();
   document.getElementById('ctx-dr-bg').classList.add('open');
   document.getElementById('ctx-drawer').classList.add('open');
 }
+
 function closeCtxDrawer(){
   document.getElementById('ctx-dr-bg').classList.remove('open');
   document.getElementById('ctx-drawer').classList.remove('open');
   ctxProd=null;
+  ctxEditingEntry=null;
+  if(typeof window.cancelarEdicaoContexto==='function')window.cancelarEdicaoContexto();
 }
 
 function renderCtxTabs(){
-  var html='';
-  CTX_PRODS.forEach(function(p){
-    html+='<button class="ctx-tab'+(p.key===ctxProd?' act':'')+'" onclick="switchCtxProd(\''+p.key.replace(/'/g,"\\'")+'\')">'
-      +p.icon+' '+p.label+'</button>';
-  });
-  document.getElementById('ctx-prod-tabs').innerHTML=html;
+  document.getElementById('ctx-prod-tabs').innerHTML=CTX_PRODS.map(function(p){
+    return '<button class="ctx-tab'+(p.key===ctxProd?' act':'')+'" onclick="switchCtxProd('+JSON.stringify(p.key).replace(/"/g,'&quot;')+')">'+p.icon+' '+p.label+'</button>';
+  }).join('');
 }
-function switchCtxProd(k){ctxProd=k;renderCtxTabs();renderCtxForm();}
+
+function switchCtxProd(k){
+  ctxProd=k;
+  renderCtxTabs();
+  renderCtxForm();
+}
 
 function renderCtxForm(){
   var year=viewYear,month=viewMonth;
   var form=document.getElementById('ctx-dr-form');
   var delBtn=document.getElementById('ctx-del-btn');
-  var ex=null;
-  for(var i=0;i<CTX_DATA.length;i++){if(CTX_DATA[i].prod===ctxProd&&ctxInMonth(CTX_DATA[i],year,month)){ex=CTX_DATA[i];break;}}
+  var ex=ctxEditingEntry;
+
   delBtn.style.display=ex?'flex':'none';
 
   var pad=function(n){return String(n).padStart(2,'0');};
   var defS=year+'-'+pad(month+1)+'-01';
   var defE=year+'-'+pad(month+1)+'-'+pad(new Date(year,month+1,0).getDate());
-
   var s=ex?ex.startDate:defS;
   var e=ex?ex.endDate:defE;
   var obs=ex?ex.obs:'';
-  var obsType=ex?ex.obsType||'warn':'warn';
-  var dTitle=ex?ex.discTitle||'':'';
+  var obsType=ex?(ex.obsType||'warn'):'warn';
+  var dTitle=ex?(ex.discTitle||''):'';
   var dAuto=ex?ex.discAuto!==false:true;
-  var items=ex?ex.items||[]:[];
+  var items=ex?(ex.items||[]):[];
 
-  var iHtml='';
-  if(items.length){
-    items.forEach(function(it,i){iHtml+=ctxRow(it.label,it.pct,i);});
-  } else {
-    iHtml='<div style="color:var(--n4);font-size:12px;font-style:italic;padding:6px">Nenhum item. Clique em \uFF0B Adicionar.</div>';
-  }
+  var iHtml=items.length
+    ? items.map(function(it,i){return ctxRow(it.label,it.pct,i);}).join('')
+    : '<div style="color:var(--n4);font-size:12px;font-style:italic;padding:6px">Nenhum item. Clique em ＋ Adicionar.</div>';
 
-  var oOpts='';
-  ['warn','info','ok'].forEach(function(v){
-    oOpts+='<option value="'+v+'" '+(v===obsType?'selected':'')+'>'
-      +(v==='warn'?'\u26a0\ufe0f Aten\u00e7\u00e3o':v==='info'?'\u2139\ufe0f Informa\u00e7\u00e3o':'\u2705 Positivo')
-      +'</option>';
-  });
+  var oOpts=['warn','info','ok'].map(function(v){
+    return '<option value="'+v+'" '+(v===obsType?'selected':'')+'>'+(v==='warn'?'⚠️ Atenção':v==='info'?'ℹ️ Informação':'✅ Positivo')+'</option>';
+  }).join('');
 
   form.innerHTML=
     '<div class="ctx-drawer-sect">'
-      +'<div class="fsttl">\uD83D\uDCC5 Per\u00edodo de vig\u00eancia</div>'
-      +'<div class="frow">'
-        +'<div class="fgrp"><label class="flbl2">Data in\u00edcio <span class="freq">*</span></label>'
-        +'<input class="fi" id="ctx-s" type="date" value="'+s+'"></div>'
-        +'<div class="fgrp"><label class="flbl2">Data fim <span class="freq">*</span></label>'
-        +'<input class="fi" id="ctx-e" type="date" value="'+e+'"></div>'
-      +'</div>'
-      +'<div class="fhint" style="margin-top:6px">\uD83D\uDCA1 Aparece em todos os meses que o per\u00edodo abranger.</div>'
-    +'</div>'
-    +'<div class="ctx-drawer-sect">'
-      +'<div class="fsttl">\uD83D\uDCDD Observa\u00e7\u00e3o</div>'
-      +'<div class="fgrp"><label class="flbl2">Tipo</label>'
-      +'<select class="fs" id="ctx-ot">'+oOpts+'</select></div>'
-      +'<div class="fgrp" style="margin-top:8px"><label class="flbl2">Texto</label>'
-      +'<textarea class="fta" id="ctx-obs" maxlength="400" style="min-height:64px" '
-      +'placeholder="Ex: Tivemos redu\u00e7\u00e3o no pre\u00e7o">'+escH(obs)+'</textarea></div>'
-    +'</div>'
-    +'<div class="ctx-drawer-sect">'
-      +'<div class="fsttl">\uD83C\uDFF7\ufe0f Descontos / Informa\u00e7\u00f5es adicionais</div>'
-      +'<div class="fgrp"><label class="flbl2">T\u00edtulo da se\u00e7\u00e3o</label>'
-      +'<input class="fi" id="ctx-dt" type="text" maxlength="60" value="'+escH(dTitle)+'" '
-      +'placeholder="Ex: Descontos Egressos"></div>'
-      +'<div id="ctx-rows" style="margin-top:10px">'+iHtml+'</div>'
-      +'<button class="ctx-add-btn" onclick="addCtxRow()" style="margin-top:8px">\uFF0B Adicionar linha</button>'
-      +'<label class="fchk" style="margin-top:12px"><input type="checkbox" id="ctx-auto" '+(dAuto?'checked':'')+'>'
-      +'<span class="fchk-l">\uD83D\uDCCC Desconto autom\u00e1tico via CPF</span></label>'
-    +'</div>';
+    +'<div class="fsttl">📅 Período de vigência</div>'
+    +'<div class="frow">'
+    +'<div class="fgrp"><label class="flbl2">Data início <span class="freq">*</span></label><input class="fi" id="ctx-s" type="date" value="'+s+'"></div>'
+    +'<div class="fgrp"><label class="flbl2">Data fim <span class="freq">*</span></label><input class="fi" id="ctx-e" type="date" value="'+e+'"></div>'
+    +'</div><div class="fhint" style="margin-top:6px">💡 Aparece em todos os meses que o período abranger.</div></div>'
+    +'<div class="ctx-drawer-sect"><div class="fsttl">📝 Observação</div>'
+    +'<div class="fgrp"><label class="flbl2">Tipo</label><select class="fs" id="ctx-ot">'+oOpts+'</select></div>'
+    +'<div class="fgrp" style="margin-top:8px"><label class="flbl2">Texto</label><textarea class="fta" id="ctx-obs" maxlength="400" style="min-height:64px" placeholder="Ex: Tivemos redução no preço">'+escH(obs)+'</textarea></div></div>'
+    +'<div class="ctx-drawer-sect"><div class="fsttl">🏷️ Descontos / Informações adicionais</div>'
+    +'<div class="fgrp"><label class="flbl2">Título da seção</label><input class="fi" id="ctx-dt" type="text" maxlength="60" value="'+escH(dTitle)+'" placeholder="Ex: Descontos Egressos"></div>'
+    +'<div id="ctx-rows" style="margin-top:10px">'+iHtml+'</div>'
+    +'<button class="ctx-add-btn" onclick="addCtxRow()" style="margin-top:8px">＋ Adicionar linha</button>'
+    +'<label class="fchk" style="margin-top:12px"><input type="checkbox" id="ctx-auto" '+(dAuto?'checked':'')+'><span class="fchk-l">📌 Desconto automático via CPF</span></label></div>';
 }
 
 function ctxRow(label,pct,i){
   return '<div class="ctx-disc-row" id="ctx-row-'+i+'">'
     +'<input type="text" placeholder="Ex: Egressos Grad. 26.2" value="'+escH(label)+'" class="ctx-lbl">'
     +'<input type="text" placeholder="+10%" value="'+escH(pct)+'" class="ctx-pct pct-in">'
-    +'<button class="rem-btn" onclick="removeCtxRow(this)">\u2715</button>'
-    +'</div>';
+    +'<button class="rem-btn" onclick="removeCtxRow(this)">✕</button></div>';
 }
+
 function addCtxRow(){
   var c=document.getElementById('ctx-rows');
   var em=c.querySelector('div[style*="font-style:italic"]');if(em)em.remove();
   var idx=c.querySelectorAll('.ctx-disc-row').length;
   c.insertAdjacentHTML('beforeend',ctxRow('','',idx));
 }
+
 function removeCtxRow(btn){btn.closest('.ctx-disc-row').remove();}
 
-function saveCtxEntry(){
-  var s=document.getElementById('ctx-s').value;
-  var e=document.getElementById('ctx-e').value;
-  if(!s||!e){toast('\u26a0 Informe o per\u00edodo.','warn');return;}
-  if(s>e){toast('\u26a0 Data fim anterior \u00e0 Data in\u00edcio.','warn');return;}
-
-  var rows=document.querySelectorAll('#ctx-rows .ctx-disc-row');
-  var items=[];
-  rows.forEach(function(row){
-    var label=row.querySelector('.ctx-lbl').value.trim();
-    var pct  =row.querySelector('.pct-in').value.trim();
-    if(label)items.push({label:label,pct:pct});
-  });
-
-  var nS=new Date(s+'T00:00:00'),nE=new Date(e+'T00:00:00');
-  CTX_DATA=CTX_DATA.filter(function(en){
-    if(en.prod!==ctxProd)return true;
-    var eS=new Date(en.startDate+'T00:00:00'),eE=new Date(en.endDate+'T00:00:00');
-    return eE<nS||eS>nE;
-  });
-
-  CTX_DATA.push({
-    id:CTX_NID++, prod:ctxProd, startDate:s, endDate:e,
-    obs:document.getElementById('ctx-obs').value.trim(),
-    obsType:document.getElementById('ctx-ot').value,
-    discTitle:document.getElementById('ctx-dt').value.trim(),
-    discAuto:document.getElementById('ctx-auto').checked,
-    items:items,
-    updatedBy:CUR.name, updatedAt:new Date().toISOString()
-  });
-  saveCtxData();
-  closeCtxDrawer();
-  renderCtxPanel();
-  toast('\u2705 Contexto salvo!','ok');
-}
-
-function deleteCtxEntry(){
-  var year=viewYear,month=viewMonth;
-  CTX_DATA=CTX_DATA.filter(function(e){return!(e.prod===ctxProd&&ctxInMonth(e,year,month));});
-  saveCtxData();
-  closeCtxDrawer();
-  renderCtxPanel();
-  toast('\uD83D\uDDD1\ufe0f Contexto removido.','warn');
-}
-
+// Estas funções são substituídas por contexto-supabase-lite-v2.js após o carregamento.
+function saveCtxEntry(){toast('Aguarde a conexão com o Supabase.','warn');}
+function deleteCtxEntry(){toast('Aguarde a conexão com o Supabase.','warn');}
 
 // INIT
 buildSel();
