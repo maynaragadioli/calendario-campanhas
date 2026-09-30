@@ -167,12 +167,44 @@
 
 window.execDel = async function () {
 
-  if (
-    typeof canEdit !== 'function' ||
-    !canEdit() ||
-    typeof editId === 'undefined' ||
-    !editId
-  ) {
+  const nomeCampanha =
+    document.getElementById('cdnm')?.textContent
+      ?.replace(/^["']|["']$/g, '')
+      ?.trim();
+
+  let idExcluir =
+    typeof editId !== 'undefined' && editId
+      ? Number(editId)
+      : null;
+
+  /*
+   * Se editId tiver sido limpo depois que o modal abriu,
+   * recupera o ID usando a campanha que está apresentada
+   * no modal de confirmação.
+   */
+  if (!idExcluir && nomeCampanha && Array.isArray(CAMPS)) {
+
+    const campanha = CAMPS.find(function(c) {
+      return String(c.name || '').trim() === nomeCampanha;
+    });
+
+    if (campanha) {
+      idExcluir = Number(campanha.id);
+    }
+  }
+
+  if (!idExcluir) {
+
+    console.error(
+      '[Supabase] Não foi possível identificar a campanha.',
+      {
+        editId: typeof editId !== 'undefined'
+          ? editId
+          : 'undefined',
+        nomeCampanha: nomeCampanha
+      }
+    );
+
     if (window.toast) {
       toast(
         '⚠️ Não foi possível identificar a campanha.',
@@ -183,14 +215,12 @@ window.execDel = async function () {
     return;
   }
 
-  const idExcluir = Number(editId);
-
-  setHint('☁️ Excluindo campanha...');
-
   console.log(
     '[Supabase] Excluindo campanha ID:',
     idExcluir
   );
+
+  setHint('☁️ Excluindo campanha...');
 
   const { data, error } = await db
     .from('campanhas')
@@ -225,8 +255,11 @@ window.execDel = async function () {
   if (!data || data.length === 0) {
 
     console.error(
-      '[Supabase] Nenhuma campanha excluída. ID:',
-      idExcluir
+      '[Supabase] Nenhuma campanha excluída.',
+      {
+        id: idExcluir,
+        nome: nomeCampanha
+      }
     );
 
     setHint('⚠️ Campanha não excluída');
@@ -248,16 +281,8 @@ window.execDel = async function () {
     ov.classList.remove('open');
   }
 
-  /*
-   * Atualiza os dados diretamente do Supabase.
-   * Isso evita depender do armazenamento local.
-   */
   await refreshCampaigns();
 
-  /*
-   * Só fecha o drawer depois que o banco
-   * confirmou a exclusão.
-   */
   if (window.closeDrawer) {
     closeDrawer();
   }
@@ -271,7 +296,6 @@ window.execDel = async function () {
     );
   }
 };
-
   window.doImp = async function (mode) {
     if (typeof canEdit !== 'function' || !canEdit()) return;
     const valid = (typeof pImp !== 'undefined' ? pImp : []).filter(c => window.valRow && valRow(c).length === 0);
