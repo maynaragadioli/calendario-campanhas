@@ -165,22 +165,112 @@
     if (window.toast) toast(wasEditing ? '✅ Campanha atualizada!' : '✅ Campanha adicionada!', 'ok');
   };
 
-  window.execDel = async function () {
-    if (typeof canEdit !== 'function' || !canEdit() || typeof editId === 'undefined' || !editId) return;
-    setHint('☁️ Excluindo...');
-    const { error } = await db.from('campanhas').delete().eq('id', editId);
-    if (error) {
-      console.error(error);
-      setHint('⚠️ Erro ao excluir');
-      if (window.toast) toast('Erro ao excluir: ' + error.message, 'err');
-      return;
+window.execDel = async function () {
+
+  if (
+    typeof canEdit !== 'function' ||
+    !canEdit() ||
+    typeof editId === 'undefined' ||
+    !editId
+  ) {
+    if (window.toast) {
+      toast(
+        '⚠️ Não foi possível identificar a campanha.',
+        'warn'
+      );
     }
-    const ov = document.getElementById('ov-del');
-    if (ov) ov.classList.remove('open');
-    if (window.closeDrawer) closeDrawer();
-    await refreshCampaigns();
-    if (window.toast) toast('🗑️ Campanha excluída.', 'warn');
-  };
+
+    return;
+  }
+
+  const idExcluir = Number(editId);
+
+  setHint('☁️ Excluindo campanha...');
+
+  console.log(
+    '[Supabase] Excluindo campanha ID:',
+    idExcluir
+  );
+
+  const { data, error } = await db
+    .from('campanhas')
+    .delete()
+    .eq('id', idExcluir)
+    .select();
+
+  if (error) {
+
+    console.error(
+      '[Supabase] Erro ao excluir campanha:',
+      error
+    );
+
+    setHint('⚠️ Erro ao excluir');
+
+    if (window.toast) {
+      toast(
+        '❌ Erro ao excluir: ' + error.message,
+        'err'
+      );
+    }
+
+    return;
+  }
+
+  console.log(
+    '[Supabase] DELETE retornou:',
+    data
+  );
+
+  if (!data || data.length === 0) {
+
+    console.error(
+      '[Supabase] Nenhuma campanha excluída. ID:',
+      idExcluir
+    );
+
+    setHint('⚠️ Campanha não excluída');
+
+    if (window.toast) {
+      toast(
+        '⚠️ O Supabase não confirmou a exclusão.',
+        'warn'
+      );
+    }
+
+    return;
+  }
+
+  const ov =
+    document.getElementById('ov-del');
+
+  if (ov) {
+    ov.classList.remove('open');
+  }
+
+  /*
+   * Atualiza os dados diretamente do Supabase.
+   * Isso evita depender do armazenamento local.
+   */
+  await refreshCampaigns();
+
+  /*
+   * Só fecha o drawer depois que o banco
+   * confirmou a exclusão.
+   */
+  if (window.closeDrawer) {
+    closeDrawer();
+  }
+
+  setHint('☁️ Sincronizado com Supabase');
+
+  if (window.toast) {
+    toast(
+      '🗑️ Campanha excluída do Supabase.',
+      'warn'
+    );
+  }
+};
 
   window.doImp = async function (mode) {
     if (typeof canEdit !== 'function' || !canEdit()) return;
