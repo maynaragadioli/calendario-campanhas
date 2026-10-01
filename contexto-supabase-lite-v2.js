@@ -29,23 +29,21 @@ async function loadContextos() {
 
   const client = db();
 
-  if (!client) {
-    return;
-  }
+  if (!client) return;
 
   const { data, error } = await client
     .from('contextos_mensais')
     .select('*')
     .order(
-      'data_inicio'*
+      'data_inicio',
       { ascending: true }
     )
- *  .order(
+    .order(
       'id',
-      { asce*ding: true }
+      { ascending: true }
     );
 
-  if (error) *
+  if (error) {
 
     console.error(
       '[Contextos] SELECT falhou:',
@@ -58,11 +56,6 @@ async function loadContextos() {
   const mapped =
     (data || []).map(mapRow);
 
-  /*
-   * Mantém CTX_DATA com todos os contextos.
-   * O filtro do mês continua sendo realizado
-   * pela função ctxInMonth() do index.html.
-   */
   try {
 
     CTX_DATA = mapped;
@@ -81,79 +74,13 @@ async function loadContextos() {
       Math.max(
         0,
         ...mapped.map(
-          contexto =>
-            Number(contexto.id) || 0
+          x => x.id || 0
         )
       ) + 1;
 
-  } catch (_) {
-    // CTX_NID existe no index.html.
-  }
+  } catch (_) {}
 
-  /*
-   * Instala uma única vez a sincronização
-   * entre o calendário e o painel de contexto.
-   *
-   * Sempre que render() for executada,
-   * renderCtxPanel() também será executada.
-   */
   if (
-    !window.__contextoRenderSincronizado &&
-    typeof window.render === 'function'
-  ) {
-
-    const renderCalendarioOriginal =
-      window.render;
-
-    window.render =
-      function () {
-
-        const resultado =
-          renderCalendarioOriginal.apply(
-            this,
-            arguments
-          );
-
-        if (
-          typeof window.renderCtxPanel ===
-          'function'
-        ) {
-
-          window.renderCtxPanel();
-
-        } else if (
-          typeof renderCtxPanel ===
-          'function'
-        ) {
-
-          renderCtxPanel();
-
-        }
-
-        return resultado;
-
-      };
-
-    window.__contextoRenderSincronizado =
-      true;
-
-    console.log(
-      '[Contextos] Sincronização com o mês do calendário instalada.'
-    );
-  }
-
-  /*
-   * Renderiza imediatamente depois
-   * de carregar os dados do Supabase.
-   */
-  if (
-    typeof window.renderCtxPanel ===
-    'function'
-  ) {
-
-    window.renderCtxPanel();
-
-  } else if (
     typeof renderCtxPanel ===
     'function'
   ) {
@@ -164,18 +91,9 @@ async function loadContextos() {
 
   console.log(
     '[Contextos] carregados:',
-    mapped.length,
-    '| mês visualizado:',
-    typeof viewMonth !== 'undefined'
-      ? viewMonth + 1
-      : 'indisponível',
-    '| ano visualizado:',
-    typeof viewYear !== 'undefined'
-      ? viewYear
-      : 'indisponível'
+    mapped.length
   );
 }
-
   // Desliga somente a persistencia local antiga do contexto.
   try { saveCtxData = function () {}; } catch (_) {}
   window.saveCtxData = function () {};
