@@ -884,11 +884,11 @@ function updAutoStat(){
 }
 
 // NAVEGAÇÃO
-function prevMonth(){viewMonth--;if(viewMonth<0){viewMonth=11;viewYear--;}syncSel();render();}
-function nextMonth(){viewMonth++;if(viewMonth>11){viewMonth=0;viewYear++;}syncSel();render();}
-function goToday(){viewYear=TODAY.getFullYear();viewMonth=TODAY.getMonth();syncSel();render();setTimeout(()=>document.querySelector('.cell.tod')?.scrollIntoView({behavior:'smooth',block:'center'}),100);}
-function onSelMonth(){viewMonth=parseInt(document.getElementById('sel-month').value);render();}
-function onSelYear(){viewYear=parseInt(document.getElementById('sel-year').value);render();}
+function prevMonth(){viewMonth--;if(viewMonth<0){viewMonth=11;viewYear--;}syncSel();render();renderCtxPanel();}
+function nextMonth(){viewMonth++;if(viewMonth>11){viewMonth=0;viewYear++;}syncSel();render();renderCtxPanel();}
+function goToday(){viewYear=TODAY.getFullYear();viewMonth=TODAY.getMonth();syncSel();render();renderCtxPanel();setTimeout(()=>document.querySelector('.cell.tod')?.scrollIntoView({behavior:'smooth',block:'center'}),100);}
+function onSelMonth(){viewMonth=parseInt(document.getElementById('sel-month').value);render();renderCtxPanel();}
+function onSelYear(){viewYear=parseInt(document.getElementById('sel-year').value);render();renderCtxPanel();}
 function buildSel(){
   document.getElementById('sel-month').innerHTML=MESES.map((m,i)=>`<option value="${i}"${i===viewMonth?' selected':''}>${m}</option>`).join('');
   const base=TODAY.getFullYear();
