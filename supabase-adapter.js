@@ -25,6 +25,10 @@
       s: x.data_inicio || '',
       e: x.data_fim || '',
       code: x.codigo_voucher || '',
+       availableQty:
+  x.quantidade_vouchers_disponibilizados == null
+    ? null
+    : Number(x.quantidade_vouchers_disponibilizados),
       approx: Boolean(x.inicio_aproximado),
       obs: x.observacoes || '',
       cls: x.classificacao || '',
